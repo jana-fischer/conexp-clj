@@ -67,12 +67,26 @@
                                              [1 0] [1 1] [1 2]
                                              [2 0] [2 1] [2 2]}
                            [0 1 2] [0 1 2])))
+  (is (= (make-ordered-context #{0 1 2} #{0 1 2} #{[0 0] [1 1] [2 2]} > >)
+         (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [2 1 0] [2 1 0])))
+  (is (= (make-ordered-context #{0 1 2} #{0 1 2} = > >)
+         (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [2 1 0] [2 1 0])))
   (is (thrown? IllegalArgumentException 
                (make-ordered-context {0 1} {0 1} #{[0 0] [1 1]})))
+  (is (thrown? IllegalArgumentException 
+               (make-ordered-context #{0 1} #{0 1} #{[0 0] [1 1]})))
   (is (thrown? IllegalArgumentException 
                (make-ordered-context {0 1} {0 1} =)))
   (is (thrown? IllegalArgumentException
                (make-ordered-context [0] [1] 2))))
+
+(deftest test-make-ordered-context-from-matrix
+  (is (= (make-ordered-context-from-matrix [0 1 2] [0 1 2] [1 0 0 0 1 0 0 0 1])
+         (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2])))
+  (is (= (make-ordered-context-from-matrix #{0 1 2} #{0 1 2} [1 0 0 0 1 0 0 0 1] [0 1 2] [0 1 2])
+         (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2])))
+  (is (= (make-ordered-context-from-matrix #{0 1 2} #{0 1 2} [1 0 0 0 1 0 0 0 1] < <)
+         (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2]))))
 
 (comment (deftest test-rename-objects
            (let [context1 (make-ordered-context [0 1] '[a b c d e]

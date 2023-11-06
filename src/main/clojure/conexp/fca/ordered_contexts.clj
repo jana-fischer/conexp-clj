@@ -67,9 +67,7 @@
 
 (defmethod print-method Ordered-Context [ctx out]
   (.write ^java.io.Writer out
-          ^String (context-to-string (make-context-nc (objects ctx)
-                                                      (attributes ctx)
-                                                      (incidence ctx))
+          ^String (context-to-string ctx
                                      (order-on-objects ctx)
                                      (order-on-attributes ctx))))
 
@@ -124,13 +122,38 @@
                     objects
                     attributes))
 
-(comment (defmethod make-ordered-context [Object Object clojure-coll clojure-fn clojure-fn]
-           [objects attributes incidence order-on-objects order-on-attributes]
-           (let [object-set (to-set objects)
-                 attribute-set (to-set attributes)
-                 incidence-set (set-of [g m] [[g m] incidence
-                                              :when (and (contains? object-set g)
-                                                         (contains? attribute-set m))])])))
+(defmethod make-ordered-context [Object Object clojure-coll clojure-fn clojure-fn]
+  [objects attributes incidence order-on-objects order-on-attributes]
+  (let [object-set (to-set objects)
+        attribute-set (to-set attributes)
+        incidence-set (set-of [g m] [[g m] incidence
+                                     :when (and (contains? object-set g)
+                                                (contains? attribute-set m))])
+        order-fn-on-objects (fn [x y]
+                              (order-on-objects x y))
+        order-fn-on-attributes (fn [x y]
+                                 (order-on-attributes x y))]
+    (Ordered-Context. object-set
+                      attribute-set
+                      incidence-set
+                      order-fn-on-objects
+                      order-fn-on-attributes)))
+
+(defmethod make-ordered-context [Object Object clojure-fn clojure-fn clojure-fn]
+  [objects attributes incidence order-on-objects order-on-attributes]
+  (let [object-set (to-set objects)
+        attribute-set (to-set attributes)
+        incidence-fn (fn [[g m]]
+                       (incidence g m))
+        order-fn-on-objects (fn [x y]
+                              (order-on-objects x y))
+        order-fn-on-attributes (fn [x y]
+                                 (order-on-attributes x y))]
+    (Ordered-Context. object-set
+                      attribute-set
+                      incidence-fn
+                      order-fn-on-objects
+                      order-fn-on-attributes)))
 
 (defmethod make-ordered-context :default [objects attributes incidence]
   (illegal-argument "The arguments " objects ", " attributes " and " incidence 
@@ -141,21 +164,29 @@
                     " are not valid for an ordered context."))
 
 (defn make-ordered-context-from-matrix
-  "Given objects G, attributes M and an incidence matrix, constructs the 
+  "With given objects, attributes and an incidence matrix, constructs the 
   corresponding context. G and M may also be numbers where they represent (range G)
   and (range M) respectively."
-  [G M bits]
-  (assert (forall [x bits] (or (= 1 x) (= 0 x)))
-          "All entries given must be either 0 or 1.")
-  (let [G (ensure-seq G),
-        M (ensure-seq M),
-        m (count G),
-        n (count M)]
-    (assert (= (* m n) (count bits))
-            "Number of objects and attributes does not match the number of entries.")
-    (make-ordered-context-nc G M
-                             (set-of [a b] [i (range (count G)),
-                                            j (range (count M)),
-                                            :when (= 1 (nth bits (+ (* n i) j)))
-                                            :let [a (nth G i),
-                                                  b (nth M j)]]))))
+  ([objects attributes bits]
+   (make-ordered-context-from-matrix objects attributes bits objects attributes))
+  ([objects attributes bits order-on-objects order-on-attributes]
+   (assert (forall [x bits] (or (= 1 x) (= 0 x)))
+           "All entries given must be either 0 or 1.")
+   (assert (or (sequential? order-on-objects)
+               (fn? order-on-objects))
+           "Order on objects must either be a sequence or a function.")
+   (assert (or (sequential? order-on-attributes)
+               (fn? order-on-attributes))
+           "Order on attributes must either be a sequence or a function.")
+   (let [objects (ensure-seq objects),
+         attributes (ensure-seq attributes),
+         object-count (count objects),
+         attribute-count (count attributes)]
+     (assert (= (* object-count attribute-count) (count bits))
+             "Number of objects and attributes does not match the number of entries.")
+     (make-ordered-context-nc objects attributes
+                              (set-of [a b] [i (range object-count),
+                                             j (range attribute-count),
+                                             :when (= 1 (nth bits (+ (* attribute-count i) j)))
+                                             :let [a (nth objects i),
+                                                   b (nth attributes j)]])))))
