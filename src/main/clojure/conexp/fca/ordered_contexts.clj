@@ -104,25 +104,37 @@
   [objects attributes incidence]
   (make-ordered-context objects attributes incidence objects attributes))
 
-(defmethod make-ordered-context [Object Object clojure-coll clojure-seq clojure-seq]
+(defmethod make-ordered-context [clojure-coll clojure-coll clojure-coll clojure-seq clojure-seq]
   [objects attributes incidence order-on-objects order-on-attributes]
+  (assert (subset? objects (set order-on-objects))
+          "All objects need to be considered in the order-on-objects.")
+  (assert (subset? attributes (set order-on-attributes))
+          "All attributes need to be considered in the order-on-attributes.")
   (let [object-set (to-set objects)
         attribute-set (to-set attributes)
         incidence-set (set-of [g m] [[g m] incidence
                                      :when (and (contains? object-set g)
                                                 (contains? attribute-set m))])]
-    (Ordered-Context. object-set attribute-set incidence-set order-on-objects order-on-attributes)))
+    (Ordered-Context. object-set 
+                      attribute-set 
+                      incidence-set 
+                      order-on-objects 
+                      order-on-attributes)))
 
-(defmethod make-ordered-context [Object Object clojure-fn clojure-seq clojure-seq]
+(defmethod make-ordered-context [clojure-coll clojure-coll clojure-fn clojure-seq clojure-seq]
   [objects attributes incidence order-on-objects order-on-attributes]
+  (assert (subset? objects (set order-on-objects))
+          "All objects need to be considered in the order-on-objects.")
+  (assert (subset? attributes (set order-on-attributes))
+          "All attributes need to be considered in the order-on-attributes.")
   (Ordered-Context. (set objects)
                     (set attributes)
                     (fn [[g m]]
                       (incidence g m))
-                    objects
-                    attributes))
+                    order-on-objects
+                    order-on-attributes))
 
-(defmethod make-ordered-context [Object Object clojure-coll clojure-fn clojure-fn]
+(defmethod make-ordered-context [clojure-coll clojure-coll clojure-coll clojure-fn clojure-fn]
   [objects attributes incidence order-on-objects order-on-attributes]
   (let [object-set (to-set objects)
         attribute-set (to-set attributes)
@@ -139,7 +151,7 @@
                       order-fn-on-objects
                       order-fn-on-attributes)))
 
-(defmethod make-ordered-context [Object Object clojure-fn clojure-fn clojure-fn]
+(defmethod make-ordered-context [clojure-coll clojure-coll clojure-fn clojure-fn clojure-fn]
   [objects attributes incidence order-on-objects order-on-attributes]
   (let [object-set (to-set objects)
         attribute-set (to-set attributes)
@@ -155,12 +167,17 @@
                       order-fn-on-objects
                       order-fn-on-attributes)))
 
-(defmethod make-ordered-context :default [objects attributes incidence]
-  (illegal-argument "The arguments " objects ", " attributes " and " incidence 
-                    " are not valid for an ordered context."))
+(defmethod make-ordered-context [Formal-Context clojure-seq clojure-seq]
+  [ctx order-on-objects order-on-attributes]
+  (make-ordered-context (objects ctx)
+                        (attributes ctx)
+                        (incidence ctx)
+                        order-on-objects
+                        order-on-attributes))
 
-(defmethod make-ordered-context :default [objects attributes incidence order-on-objects order-on-attributes]
-  (illegal-argument "The arguments " objects ", " attributes ", " incidence ", " order-on-objects " and " order-on-attributes
+(defmethod make-ordered-context :default 
+  [& args]
+  (illegal-argument "The arguments " args 
                     " are not valid for an ordered context."))
 
 (defn make-ordered-context-from-matrix
@@ -189,4 +206,16 @@
                                              j (range attribute-count),
                                              :when (= 1 (nth bits (+ (* attribute-count i) j)))
                                              :let [a (nth objects i),
-                                                   b (nth attributes j)]])))))
+                                                   b (nth attributes j)]])
+                              order-on-objects order-on-attributes))))
+
+(defn rand-ordered-context
+  "With given objects and attributes, make a random ordered context."
+  [objects attributes fill-rate]
+  (when-not (and (number? fill-rate)
+                 (<= 0 fill-rate 1))
+    (illegal-argument "Fill-rate must be a number between 0 and 1."))
+  (let [object-set (to-set objects)
+        attribute-set (to-set attributes)]
+    (make-ordered-context objects attributes
+                          (set-of [g m] | g object-set, m attribute-set, :when (> fill-rate (rand))))))

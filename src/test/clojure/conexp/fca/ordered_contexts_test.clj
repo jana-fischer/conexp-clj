@@ -28,12 +28,35 @@
             (Ordered-Context. [1 0] '[a b] #{[0 'a] [1 'b]} [1 0] '[a b])))
   (is (not= (Ordered-Context. [0 1] '[a b] #{[0 'a] [1 'b]} [0 1] '[a b])
             (Ordered-Context. [0 1] '[b a] #{[0 'a] [1 'b]} [0 1] '[b a])))
-  (is (not= (Ordered-Context. [0 1] '[a b] #{[0 'a] [1 'b]} [] [])
-            (Ordered-Context. [0 1] '[a b] #{[0 'a] [1 'a]} [] [])))
-  (is (not= (Ordered-Context. [0 1] '[a b] #{[0 'a] [1 'b]} [] [])
+  (is (not= (Ordered-Context. [0 1] '[a b] #{[0 'a] [1 'b]} [0 1] '[a b])
+            (Ordered-Context. [0 1] '[a b] #{[0 'a] [1 'a]} [0 1] '[a b])))
+  (is (not= (Ordered-Context. [0 1] '[a b] #{[0 'a] [1 'b]} [0 1] '[a b])
             (Formal-Context. [0 1] '[a b] #{[0 'a] [1 'a]})))
   (is (not= (Ordered-Context. [] [] [] [] [])
             (Object.))))
+
+(deftest test-Ordered-Context-hashCode
+  (let [context1 (Ordered-Context. #{0 1 2} #{0 1 2} #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2])
+        context2 (Ordered-Context. #{0 1 2} #{0 1 2} #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2])
+        context3 (Ordered-Context. #{0 1 2} #{0 1 2} (fn [[g m]] (= g m)) [0 1 2] [0 1 2])]
+    (is (= (hash context1) (hash context2)))
+    (is (not (= (hash context1) (hash context3))))))
+
+(deftest test-order-on-objects
+  (let [context1 (Ordered-Context. #{0 1 2} #{0 1 2} #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2])
+        context2 (Ordered-Context. #{0 1 2} #{0 1 2} #{[0 0] [1 1] [2 2]} < <)]
+    (is (= (order-on-objects context1)
+           [0 1 2]))
+    (is (= (order-on-objects context2)
+           <))))
+
+(deftest test-order-on-attributes
+  (let [context1 (Ordered-Context. #{0 1 2} #{0 1 2} #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2])
+        context2 (Ordered-Context. #{0 1 2} #{0 1 2} #{[0 0] [1 1] [2 2]} < <)]
+    (is (= (order-on-attributes context1)
+           [0 1 2]))
+    (is (= (order-on-attributes context2)
+           <))))
 
 (deftest test-ordered-context?
   (is (ordered-context? (Ordered-Context. [] [] [] [] [])))
@@ -76,7 +99,7 @@
   (is (thrown? IllegalArgumentException 
                (make-ordered-context #{0 1} #{0 1} #{[0 0] [1 1]})))
   (is (thrown? IllegalArgumentException 
-               (make-ordered-context {0 1} {0 1} =)))
+               (make-ordered-context {0 1} {0 1} #{[0 0] [1 1]} #{0 1} #{0 1})))
   (is (thrown? IllegalArgumentException
                (make-ordered-context [0] [1] 2))))
 
@@ -86,7 +109,23 @@
   (is (= (make-ordered-context-from-matrix #{0 1 2} #{0 1 2} [1 0 0 0 1 0 0 0 1] [0 1 2] [0 1 2])
          (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2])))
   (is (= (make-ordered-context-from-matrix #{0 1 2} #{0 1 2} [1 0 0 0 1 0 0 0 1] < <)
-         (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2]))))
+         (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2])))
+  (is (thrown? AssertionError
+               (make-ordered-context-from-matrix [0 1 2] [0 1 2] [1 0 0 0 1 0 0 0 2])))
+  (is (thrown? AssertionError
+               (make-ordered-context-from-matrix [0 1 2] [0 1 2] [1 0 0 0 1 0 0 0])))
+  (is (thrown? AssertionError
+               (make-ordered-context-from-matrix #{0 1 2} #{0 1 2} [1 0 0 0 1 0 0 0 1])))
+  (is (thrown? AssertionError
+               (make-ordered-context-from-matrix [0 1 2] #{0 1 2} [1 0 0 0 1 0 0 0 1]))))
+
+(deftest test-rand-ordered-context
+  (let [context (rand-ordered-context [0 1 2 3] [4 5 6 7] 0.5)]
+    (is (ordered-context? context))
+    (is (= [0 1 2 3] (order-on-objects context)))
+    (is (= [4 5 6 7] (order-on-attributes context))))
+  (is (thrown? IllegalArgumentException
+               (rand-ordered-context [0 1] [2 3] 'a))))
 
 (comment (deftest test-rename-objects
            (let [context1 (make-ordered-context [0 1] '[a b c d e]
