@@ -127,13 +127,17 @@
   (is (thrown? IllegalArgumentException
                (rand-ordered-context [0 1] [2 3] 'a))))
 
-(comment (deftest test-rename-objects
-           (let [context1 (make-ordered-context [0 1] '[a b c d e]
-                                                #{[0 'a] [0 'b] [1 'c] [0 'd] [1 'd]})
-                 context2 (make-ordered-context [1 2] '[a b c d e]
-                                                #{[1 'a] [1 'b] [2 'c] [1 'd] [2 'd]})]
-             (is (= (rename-objects context1 #(get {0 1 1 2} %))
-                    context2)))))
+(deftest test-rename-objects
+  (let [context1 (make-ordered-context [0 1] [0 1 2 3 4]
+                                       #{[0 0] [0 1] [1 2] [0 3] [1 3]})
+        context2 (make-ordered-context [1 2] [0 1 2 3 4]
+                                       #{[1 0] [1 1] [2 2] [1 3] [2 3]})
+        context3 (make-ordered-context [0 1] [0 1 2 3 4]
+                                       #{[0 0] [0 1] [1 2] [0 3] [1 3]} < <)]
+    (is (= (rename-ordered-objects context1 #(get {0 1 1 2} %))
+           context2))
+    (is (= (rename-ordered-objects context3 #(get {0 1 1 2} %))
+           context2))))
 
 ;;; Tests Ordered-Context with functions from conexp.fca.contexts:
 

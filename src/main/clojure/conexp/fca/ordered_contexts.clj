@@ -175,6 +175,14 @@
                         order-on-objects
                         order-on-attributes))
 
+(defmethod make-ordered-context [Formal-Context clojure-fn clojure-fn]
+  [ctx order-on-objects order-on-attributes]
+  (make-ordered-context (objects ctx)
+                        (attributes ctx)
+                        (incidence ctx)
+                        order-on-objects
+                        order-on-attributes))
+
 (defmethod make-ordered-context :default 
   [& args]
   (illegal-argument "The arguments " args 
@@ -187,35 +195,32 @@
   ([objects attributes bits]
    (make-ordered-context-from-matrix objects attributes bits objects attributes))
   ([objects attributes bits order-on-objects order-on-attributes]
-   (assert (forall [x bits] (or (= 1 x) (= 0 x)))
-           "All entries given must be either 0 or 1.")
    (assert (or (sequential? order-on-objects)
                (fn? order-on-objects))
            "Order on objects must either be a sequence or a function.")
    (assert (or (sequential? order-on-attributes)
                (fn? order-on-attributes))
            "Order on attributes must either be a sequence or a function.")
-   (let [objects (ensure-seq objects),
-         attributes (ensure-seq attributes),
-         object-count (count objects),
-         attribute-count (count attributes)]
-     (assert (= (* object-count attribute-count) (count bits))
-             "Number of objects and attributes does not match the number of entries.")
-     (make-ordered-context-nc objects attributes
-                              (set-of [a b] [i (range object-count),
-                                             j (range attribute-count),
-                                             :when (= 1 (nth bits (+ (* attribute-count i) j)))
-                                             :let [a (nth objects i),
-                                                   b (nth attributes j)]])
-                              order-on-objects order-on-attributes))))
+   (let [context (make-context-from-matrix objects attributes bits)]
+     (make-ordered-context context
+                           order-on-objects 
+                           order-on-attributes))))
 
 (defn rand-ordered-context
   "With given objects and attributes, make a random ordered context."
   [objects attributes fill-rate]
-  (when-not (and (number? fill-rate)
-                 (<= 0 fill-rate 1))
-    (illegal-argument "Fill-rate must be a number between 0 and 1."))
-  (let [object-set (to-set objects)
-        attribute-set (to-set attributes)]
-    (make-ordered-context objects attributes
-                          (set-of [g m] | g object-set, m attribute-set, :when (> fill-rate (rand))))))
+  (let [context (rand-context objects attributes fill-rate)]
+    (make-ordered-context context objects attributes)))
+
+(defn rename-ordered-objects
+  "Rename objects in context by given function old-to-new."
+  [context old-to-new]
+  (let [new-context (rename-objects (make-context (objects context)
+                                                  (attributes context)
+                                                  (incidence context))
+                                    old-to-new)
+        new-object-order (map old-to-new (sort-things (set (objects context)) (order-on-objects context)))
+        attribute-order (sort-things (set (attributes context)) (order-on-attributes context))]
+    (make-ordered-context new-context 
+                          new-object-order
+                          attribute-order)))
