@@ -43,7 +43,12 @@
             (sort-things (set (.attributes ^Ordered-Context other))
                          (.order-on-attributes ^Ordered-Context other)))))
   (hashCode [this]
-    (hash-combine-hash Ordered-Context objects attributes incidence order-on-objects order-on-attributes))
+    (hash-combine-hash Ordered-Context 
+                       objects 
+                       attributes 
+                       incidence 
+                       order-on-objects 
+                       order-on-attributes))
   ;;
   Context
   (objects [this] objects)
@@ -90,8 +95,11 @@
   true iff its arguments are incident.
   The order on the objects and attributes is either given with the order on the sequences,
   or given separately as a sequence or function by order-on-objects 
-  and order-on-attributes."
+  and order-on-attributes.
+  The standard constructor can also build an ordered context from a Formal-Context 
+  and given order-on-objects and order-on-attributes."
   {:arglist '([objects attributes incidence]
+              [context order-on-objects order-on-attributes]
               [objects attributes incidence order-on-objects order-on-attributes])}
   (fn [& args]
     (vec (map clojure-type args))))
@@ -104,89 +112,46 @@
   [objects attributes incidence]
   (make-ordered-context objects attributes incidence objects attributes))
 
-(defmethod make-ordered-context [clojure-coll clojure-coll clojure-coll clojure-seq clojure-seq]
+(defmethod make-ordered-context [clojure-coll clojure-coll Object clojure-seq clojure-seq]
   [objects attributes incidence order-on-objects order-on-attributes]
-  (assert (subset? objects (set order-on-objects))
-          "All objects need to be considered in the order-on-objects.")
-  (assert (subset? attributes (set order-on-attributes))
-          "All attributes need to be considered in the order-on-attributes.")
-  (let [object-set (to-set objects)
-        attribute-set (to-set attributes)
-        incidence-set (set-of [g m] [[g m] incidence
-                                     :when (and (contains? object-set g)
-                                                (contains? attribute-set m))])]
-    (Ordered-Context. object-set 
-                      attribute-set 
-                      incidence-set 
-                      order-on-objects 
-                      order-on-attributes)))
+  (let [formal-context (make-context objects attributes incidence)]
+    (make-ordered-context formal-context order-on-objects order-on-attributes)))
 
-(defmethod make-ordered-context [clojure-coll clojure-coll clojure-fn clojure-seq clojure-seq]
+(defmethod make-ordered-context [clojure-coll clojure-coll Object clojure-fn clojure-fn]
   [objects attributes incidence order-on-objects order-on-attributes]
-  (assert (subset? objects (set order-on-objects))
-          "All objects need to be considered in the order-on-objects.")
-  (assert (subset? attributes (set order-on-attributes))
-          "All attributes need to be considered in the order-on-attributes.")
-  (Ordered-Context. (set objects)
-                    (set attributes)
-                    (fn [[g m]]
-                      (incidence g m))
-                    order-on-objects
-                    order-on-attributes))
-
-(defmethod make-ordered-context [clojure-coll clojure-coll clojure-coll clojure-fn clojure-fn]
-  [objects attributes incidence order-on-objects order-on-attributes]
-  (let [object-set (to-set objects)
-        attribute-set (to-set attributes)
-        incidence-set (set-of [g m] [[g m] incidence
-                                     :when (and (contains? object-set g)
-                                                (contains? attribute-set m))])
-        order-fn-on-objects (fn [x y]
-                              (order-on-objects x y))
-        order-fn-on-attributes (fn [x y]
-                                 (order-on-attributes x y))]
-    (Ordered-Context. object-set
-                      attribute-set
-                      incidence-set
-                      order-fn-on-objects
-                      order-fn-on-attributes)))
-
-(defmethod make-ordered-context [clojure-coll clojure-coll clojure-fn clojure-fn clojure-fn]
-  [objects attributes incidence order-on-objects order-on-attributes]
-  (let [object-set (to-set objects)
-        attribute-set (to-set attributes)
-        incidence-fn (fn [[g m]]
-                       (incidence g m))
-        order-fn-on-objects (fn [x y]
-                              (order-on-objects x y))
-        order-fn-on-attributes (fn [x y]
-                                 (order-on-attributes x y))]
-    (Ordered-Context. object-set
-                      attribute-set
-                      incidence-fn
-                      order-fn-on-objects
-                      order-fn-on-attributes)))
+  (let [formal-context (make-context objects attributes incidence)]
+    (make-ordered-context formal-context order-on-objects order-on-attributes)))
 
 (defmethod make-ordered-context [Formal-Context clojure-seq clojure-seq]
   [ctx order-on-objects order-on-attributes]
-  (make-ordered-context (objects ctx)
-                        (attributes ctx)
-                        (incidence ctx)
-                        order-on-objects
-                        order-on-attributes))
+  (assert (subset? (objects ctx) (set order-on-objects))
+          "All objects need to be considered in the order-on-objects.")
+  (assert (subset? (attributes ctx) (set order-on-attributes))
+          "All attributes need to be considered in the order-on-attributes.")
+  (Ordered-Context. (objects ctx)
+                    (attributes ctx)
+                    (incidence ctx)
+                    order-on-objects
+                    order-on-attributes))
 
 (defmethod make-ordered-context [Formal-Context clojure-fn clojure-fn]
   [ctx order-on-objects order-on-attributes]
-  (make-ordered-context (objects ctx)
-                        (attributes ctx)
-                        (incidence ctx)
-                        order-on-objects
-                        order-on-attributes))
+  (let [order-fn-on-objects (fn [x y]
+                              (order-on-objects x y))
+        order-fn-on-attributes (fn [x y]
+                                 (order-on-attributes x y))]
+    (Ordered-Context. (objects ctx)
+                      (attributes ctx)
+                      (incidence ctx)
+                      order-fn-on-objects
+                      order-fn-on-attributes)))
 
 (defmethod make-ordered-context :default 
   [& args]
   (illegal-argument "The arguments " args 
                     " are not valid for an ordered context."))
+
+;;
 
 (defn make-ordered-context-from-matrix
   "With given objects, attributes and an incidence matrix, constructs the 
@@ -195,12 +160,6 @@
   ([objects attributes bits]
    (make-ordered-context-from-matrix objects attributes bits objects attributes))
   ([objects attributes bits order-on-objects order-on-attributes]
-   (assert (or (sequential? order-on-objects)
-               (fn? order-on-objects))
-           "Order on objects must either be a sequence or a function.")
-   (assert (or (sequential? order-on-attributes)
-               (fn? order-on-attributes))
-           "Order on attributes must either be a sequence or a function.")
    (let [context (make-context-from-matrix objects attributes bits)]
      (make-ordered-context context
                            order-on-objects 
@@ -212,6 +171,8 @@
   (let [context (rand-context objects attributes fill-rate)]
     (make-ordered-context context objects attributes)))
 
+;;
+
 (defn rename-ordered-objects
   "Rename objects in context by given function old-to-new."
   [context old-to-new]
@@ -219,8 +180,11 @@
                                                   (attributes context)
                                                   (incidence context))
                                     old-to-new)
-        new-object-order (map old-to-new (sort-things (set (objects context)) (order-on-objects context)))
-        attribute-order (sort-things (set (attributes context)) (order-on-attributes context))]
+        new-object-order (map old-to-new 
+                              (sort-things (set (objects context))
+                                           (order-on-objects context)))
+        attribute-order (sort-things (set (attributes context))
+                                     (order-on-attributes context))]
     (make-ordered-context new-context 
                           new-object-order
                           attribute-order)))

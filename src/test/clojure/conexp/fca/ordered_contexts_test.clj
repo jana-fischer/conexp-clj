@@ -95,13 +95,25 @@
   (is (= (make-ordered-context #{0 1 2} #{0 1 2} = > >)
          (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [2 1 0] [2 1 0])))
   (is (thrown? IllegalArgumentException 
+               ;; objects and attributes cannot be a map
                (make-ordered-context {0 1} {0 1} #{[0 0] [1 1]})))
   (is (thrown? IllegalArgumentException 
+               ;; objects and attributes may not be without order
                (make-ordered-context #{0 1} #{0 1} #{[0 0] [1 1]})))
   (is (thrown? IllegalArgumentException 
+               ;; object- and attribute-order may not be a set
                (make-ordered-context {0 1} {0 1} #{[0 0] [1 1]} #{0 1} #{0 1})))
   (is (thrown? IllegalArgumentException
-               (make-ordered-context [0] [1] 2))))
+               ;; incidence of a context must be a function or set
+               (make-ordered-context [0] [1] 2)))
+  (is (thrown? AssertionError
+               ;; All objects need to be considered in the order-on-objects.
+               (make-ordered-context [0 1 2] [0 1 2] = [0 1] [0 1])))
+  (is (thrown? AssertionError
+               ;; All attributes need to be considered in the order-on-attributes.
+               (make-ordered-context [0 1 2] [0 1 2] = [0 1 2] [0 1]))))
+
+;;
 
 (deftest test-make-ordered-context-from-matrix
   (is (= (make-ordered-context-from-matrix [0 1 2] [0 1 2] [1 0 0 0 1 0 0 0 1])
@@ -111,21 +123,19 @@
   (is (= (make-ordered-context-from-matrix #{0 1 2} #{0 1 2} [1 0 0 0 1 0 0 0 1] < <)
          (Ordered-Context. [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]} [0 1 2] [0 1 2])))
   (is (thrown? AssertionError
+               ;; matrix should only contain 0 and 1
                (make-ordered-context-from-matrix [0 1 2] [0 1 2] [1 0 0 0 1 0 0 0 2])))
   (is (thrown? AssertionError
-               (make-ordered-context-from-matrix [0 1 2] [0 1 2] [1 0 0 0 1 0 0 0])))
-  (is (thrown? AssertionError
-               (make-ordered-context-from-matrix #{0 1 2} #{0 1 2} [1 0 0 0 1 0 0 0 1])))
-  (is (thrown? AssertionError
-               (make-ordered-context-from-matrix [0 1 2] #{0 1 2} [1 0 0 0 1 0 0 0 1]))))
+               ;; incorrect matrix size
+               (make-ordered-context-from-matrix [0 1 2] [0 1 2] [1 0 0 0 1 0 0 0]))))
 
 (deftest test-rand-ordered-context
   (let [context (rand-ordered-context [0 1 2 3] [4 5 6 7] 0.5)]
     (is (ordered-context? context))
     (is (= [0 1 2 3] (order-on-objects context)))
-    (is (= [4 5 6 7] (order-on-attributes context))))
-  (is (thrown? IllegalArgumentException
-               (rand-ordered-context [0 1] [2 3] 'a))))
+    (is (= [4 5 6 7] (order-on-attributes context)))))
+
+;;
 
 (deftest test-rename-objects
   (let [context1 (make-ordered-context [0 1] [0 1 2 3 4]
@@ -139,7 +149,7 @@
     (is (= (rename-ordered-objects context3 #(get {0 1 1 2} %))
            context2))))
 
-;;; Tests Ordered-Context with functions from conexp.fca.contexts:
+;;; Test that functions from conexp.fca.contexts work with Ordered-Contexts:
 
 (deftest test-incident?
   (let [context (make-ordered-context [0 1 2] [0 1 2] #{[0 0] [1 1] [2 2]})]
@@ -238,5 +248,3 @@
     (is (context-clarified? context1))
     (is (not (context-clarified? context2)))))
 
-(comment (deftest test-down-arrows
-           (let [context1 (make-ordered-context [])])))
