@@ -76,7 +76,7 @@
                  (println "\\begin{cxt}%")
                  (println "  \\cxtName{}%")
                  (doseq [m (attributes this)]
-                   (if (>= 2 (count m))
+                   (if (>= 2 (count (str m)))
                      (println (str "  \\att{" (tex-escape m) "}%"))
                      (println (str "  \\atr{" (tex-escape m) "}%"))))
                  (let [inz (incidence this)]

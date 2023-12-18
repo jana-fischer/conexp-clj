@@ -446,9 +446,15 @@
 ;; output as tex array
 
 (define-context-output-format :tex
-  [ctx file]
-  (with-out-writer file
-    (println (latex ctx))))
+  [ctx file & options]
+  (let [{:keys [objorder attrorder]
+         :or {objorder (constantly true), 
+              attrorder (constantly true)}} options]
+    (let [attr (sort-by  attrorder (attributes ctx))
+          obj (sort-by objorder (objects ctx))]
+      ;; TODO: orders are still ignored
+      (with-out-writer file
+        (println (latex ctx :fca))))))
 
 
 ;; fcalgs
@@ -584,26 +590,6 @@
            (illegal-argument "Specified file not found."))
     (catch javax.xml.stream.XMLStreamException _
            (illegal-argument "Specified file does not contain valid XML."))))
-
-(define-context-output-format :tex
-  [ctx file & options]
-  (let [{:keys [objorder attrorder]
-         :or {objorder (constantly true), 
-              attrorder (constantly true)}} options]
-    (with-out-writer file
-      (println "\\begin{cxt}")
-      (println "\\cxtName{}")
-      (let [attr (sort-by  attrorder (attributes ctx))
-            obj (sort-by objorder (objects ctx))]
-        (doseq [a attr]
-          (println (str "\\att{" a "}")))
-        (doseq [o obj]
-          (println (str "\\obj{" 
-                        (clojure.string/join "" 
-                                             (for [a attr] 
-                                               (if ((incidence ctx) [o a]) "x" ".")))
-                        "}{" o "}")))
-        (println "\\end{cxt}")))))
 
 ;; Json helpers
 
